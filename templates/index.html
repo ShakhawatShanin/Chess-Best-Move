@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chessboard Image Classification</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .chat-box {
+            border: 1px solid #ddd;
+            padding: 25px;
+            width: 100%;
+            max-width: 500px;
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .chat-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        .input-area {
+            border: 1px solid #ccc;
+            padding: 12px;
+            border-radius: 8px;
+            min-height: 50px;
+            outline: none;
+            color: #555;
+            background-color: #f9f9f9;
+            font-family: 'Poppins', Arial, sans-serif;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .input-area.placeholder::before {
+            content: attr(data-placeholder);
+            color: #aaa;
+        }
+        .image-preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .image-preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .button-container {
+            text-align: center;
+            margin-top: 25px;
+        }
+        .classify-button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #8e2de2, #4a00e0);
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+            font-family: 'Poppins', Arial, sans-serif;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 5px 15px rgba(142, 45, 226, 0.4);
+        }
+        .classify-button:hover {
+            background: linear-gradient(135deg, #4a00e0, #8e2de2);
+            transform: scale(1.05);
+        }
+        .classification-result {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            font-family: 'Poppins', Arial, sans-serif;
+            text-align: center;
+        }
+        .classification-result.loading::before {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #4a00e0;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        .side-image {
+            margin-left: 20px;
+            text-align: center;
+        }
+        .side-image img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-box">
+            <div contenteditable="true" class="input-area placeholder" id="inputArea" data-placeholder="Paste an image here..."></div>
+            <div class="image-preview" id="imagePreview">
+                <img src="https://i.pinimg.com/564x/09/a0/39/09a03932f0d8291d5736f0bba8eca761.jpg" alt="Demo Chessboard Image">
+            </div>
+            <div class="button-container">
+                <button class="classify-button" id="classifyButton" style="display: none;">Get Best Move</button>
+                <div class="classification-result" id="classificationResult"></div>
+            </div>
+        </div>
+        <div class="side-image">
+            <img src="https://i.pinimg.com/564x/c8/a1/c0/c8a1c09a12b9d2e019ba6cda8229fe33.jpg" alt="Side Image">
+        </div>
+    </div>
+
+    <script>
+        const inputArea = document.getElementById('inputArea');
+        const imagePreview = document.getElementById('imagePreview');
+        const classifyButton = document.getElementById('classifyButton');
+        const classificationResult = document.getElementById('classificationResult');
+        let imageData = null;
+
+        inputArea.addEventListener('paste', (event) => {
+            event.preventDefault();
+            const clipboardItems = event.clipboardData.items;
+            for (let item of clipboardItems) {
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const imgElement = document.createElement('img');
+                        imgElement.src = event.target.result;
+                        imagePreview.innerHTML = ''; // Clear previous image
+                        imagePreview.appendChild(imgElement);
+                        classifyButton.style.display = 'inline-block'; // Show the classify button
+                        classificationResult.innerHTML = ''; // Clear previous classification result
+                        imageData = event.target.result; // Store image data
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
+            updatePlaceholder();
+        });
+
+        inputArea.addEventListener('input', () => {
+            updatePlaceholder();
+        });
+
+        function updatePlaceholder() {
+            if (inputArea.innerHTML.trim() === '') {
+                inputArea.classList.add('placeholder');
+            } else {
+                inputArea.classList.remove('placeholder');
+            }
+        }
+
+        classifyButton.addEventListener('click', () => {
+            if (imageData) {
+                classificationResult.classList.add('loading');
+                classificationResult.innerHTML = ''; // Clear previous text
+
+                fetch('/classify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    classificationResult.classList.remove('loading');
+                    classificationResult.innerHTML = `Best Move is: ${data.result}`;
+                })
+                .catch(error => {
+                    classificationResult.classList.remove('loading');
+                    console.error('Error:', error);
+                });
+            }
+        });
+
+        // Initialize placeholder
+        updatePlaceholder();
+    </script>
+</body>
+</html>
